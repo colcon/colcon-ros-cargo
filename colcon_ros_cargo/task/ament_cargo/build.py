@@ -1,18 +1,14 @@
 # Licensed under the Apache License, Version 2.0
 
 import os
-import shutil
 from pathlib import Path
 
 from colcon_cargo.task.cargo import CARGO_EXECUTABLE
 from colcon_cargo.task.cargo.build import CargoBuildTask
-
 from colcon_core.logging import colcon_logger
 from colcon_core.plugin_system import satisfies_version
 from colcon_core.shell import create_environment_hook
 from colcon_core.task import TaskExtensionPoint
-from colcon_core.task import run
-
 import toml
 
 
@@ -49,29 +45,9 @@ class AmentCargoBuildTask(CargoBuildTask):
             'By default, dependencies are looked up only in the installation '
             'prefixes. This option is useful for setting up a '
             '.cargo/config.toml for subsequent builds with cargo.')
-        parser.add_argument(
-            '--clean-build',
-            action='store_true',
-            help='Remove old build dir before the build.')
 
-    async def build(  # noqa: D102
-        self, *, additional_hooks=[], skip_hook_creation=False
-    ):
-        additional_hooks += create_environment_hook(
-            'ament_prefix_path',
-            Path(self.context.args.install_base),
-            self.context.pkg.name,
-            'AMENT_PREFIX_PATH',
-            self.context.args.install_base,
-            mode='prepend')
-
-        return await super(AmentCargoBuildTask, self).build(
-            additional_hooks=additional_hooks,
-            skip_hook_creation=skip_hook_creation
-        )
-
-    async def _build(self, args, env):
-        self.progress('prepare')
+    def _prepare(self, env, additional_hooks):
+        args = self.context.args
 
         global package_paths
         if package_paths is None:
@@ -86,24 +62,19 @@ class AmentCargoBuildTask(CargoBuildTask):
         package_paths = new_package_paths
         write_cargo_config_toml(package_paths)
 
-        # Clean up the build dir
-        build_dir = Path(args.build_base)
-        if args.clean_build:
-            if build_dir.is_symlink():
-                build_dir.unlink()
-            elif build_dir.exists():
-                shutil.rmtree(build_dir)
+        additional_hooks += create_environment_hook(
+            'ament_prefix_path',
+            Path(self.context.args.install_base),
+            self.context.pkg.name,
+            'AMENT_PREFIX_PATH',
+            self.context.args.install_base,
+            mode='prepend')
 
-        # Invoke build step
-        if CARGO_EXECUTABLE is None:
-            raise RuntimeError("Could not find 'cargo' executable")
-        cargo_args = args.cargo_args
-        if cargo_args is None:
-            cargo_args = []
-
+    def _build_cmd(self, cargo_args):
+        args = self.context.args
         src_dir = Path(self.context.pkg.path).resolve()
         manifest_path = str(src_dir / 'Cargo.toml')
-        cmd = [
+        return [
             CARGO_EXECUTABLE, 'ament-build',
             '--install-base', args.install_base,
             '--',
@@ -112,13 +83,9 @@ class AmentCargoBuildTask(CargoBuildTask):
             '--quiet'
         ] + cargo_args
 
-        self.progress('build')
-        return await run(
-            self.context, cmd, cwd=self.context.pkg.path, env=env)
-
 
 def write_cargo_config_toml(package_paths):
-    """Write the resolved config.toml.
+    """Write the resolved package paths to config.toml.
 
     :param package_paths: A mapping of package names to paths
     """
@@ -139,7 +106,14 @@ def find_installed_cargo_packages(env):
     :rtype dict(str, Path)
     """
     prefix_for_package = {}
-    for prefix in env['AMENT_PREFIX_PATH'].split(os.pathsep):
+    ament_prefix_path_var = env.get('AMENT_PREFIX_PATH')
+    if ament_prefix_path_var is None:
+        logger.warn('AMENT_PREFIX_PATH is empty. '
+            'You probably intended to source a ROS installation.')
+        prefixes = []
+    else:
+        prefixes = ament_prefix_path_var.split(os.pathsep)
+    for prefix in prefixes:
         prefix = Path(prefix)
         packages_dir = prefix / 'share' / 'ament_index' / 'resource_index' \
             / 'rust_packages'
