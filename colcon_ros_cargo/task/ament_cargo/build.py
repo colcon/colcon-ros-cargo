@@ -52,7 +52,7 @@ class AmentCargoBuildTask(CargoBuildTask):
         global package_paths
         if package_paths is None:
             if args.lookup_in_workspace:
-                package_paths = find_workspace_cargo_packages(args.install_base)  # noqa: E501
+                package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
             else:
                 package_paths = {}
 
@@ -127,7 +127,7 @@ def find_installed_cargo_packages(env):
             for pkg, prefix in prefix_for_package.items()}
 
 
-def find_workspace_cargo_packages(install_base):
+def find_workspace_cargo_packages(build_base, install_base):
     """Find Cargo packages in the workspace/current working directory.
 
     :param install_base: The install base of the current build
@@ -143,6 +143,9 @@ def find_workspace_cargo_packages(install_base):
         # so install directories (identified by a setup.sh file) should be
         # skipped.
         if dirpath == install_base or (Path(dirpath) / 'setup.sh').exists():
+            continue
+        if dirpath == build_base or (Path(dirpath) / 'COLCON_IGNORE').exists():
+            # In particular, build dirs have a COLCON_IGNORE
             continue
         if 'Cargo.toml' in filenames:
             try:
