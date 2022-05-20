@@ -17,7 +17,7 @@ logger = colcon_logger.getChild(__name__)
 # Some logic needs to be executed once per run.
 # There are no colcon hooks for this, so it is shoehorned into the build step
 # with a global.
-package_paths = None
+ws_package_paths = None
 
 
 class AmentCargoBuildTask(CargoBuildTask):
@@ -49,17 +49,18 @@ class AmentCargoBuildTask(CargoBuildTask):
     def _prepare(self, env, additional_hooks):
         args = self.context.args
 
-        global package_paths
-        if package_paths is None:
+        global ws_package_paths
+        if ws_package_paths is None:
             if args.lookup_in_workspace:
-                package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
+                ws_package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
             else:
-                package_paths = {}
+                ws_package_paths = {}
 
         # Scan the install dirs, aka prefixes.
-        new_package_paths = find_installed_cargo_packages(env)
-        new_package_paths.update(package_paths)
-        package_paths = new_package_paths
+        install_package_paths = find_installed_cargo_packages(env)
+        # Override paths in install_package_paths with those in ws_package_paths
+        # If args.lookup_in_workspace is not given, this does nothing
+        package_paths = {**install_package_paths, **ws_package_paths}
         write_cargo_config_toml(package_paths)
 
         additional_hooks += create_environment_hook(
@@ -135,7 +136,7 @@ def find_workspace_cargo_packages(build_base, install_base):
     :rtype dict(str, Path)
     """
     path_for_package = {}
-    for (dirpath, dirnames, filenames) in os.walk(Path.cwd()):
+    for (dirpath, dirnames, filenames) in os.walk(Path.cwd(), topdown=True):
         # Users will often build the workspace several times into differently
         # named install directories, and we don't know their names. So if we
         # just scan through the current working directory, we'll probably find
@@ -143,11 +144,13 @@ def find_workspace_cargo_packages(build_base, install_base):
         # so install directories (identified by a setup.sh file) should be
         # skipped.
         if dirpath == install_base or (Path(dirpath) / 'setup.sh').exists():
-            continue
-        if dirpath == build_base or (Path(dirpath) / 'COLCON_IGNORE').exists():
+            # Do not descend into this directory
+            dirnames[:] = []
+        elif dirpath == build_base or (Path(dirpath) / 'COLCON_IGNORE').exists():
             # In particular, build dirs have a COLCON_IGNORE
-            continue
-        if 'Cargo.toml' in filenames:
+            # Do not descend into this directory
+            dirnames[:] = []
+        elif 'Cargo.toml' in filenames:
             try:
                 cargo_toml = toml.load(Path(dirpath) / 'Cargo.toml')
                 name = cargo_toml['package']['name']
