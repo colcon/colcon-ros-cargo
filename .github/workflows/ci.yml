@@ -29,6 +29,5 @@ jobs:
         with:
           python-version: ${{matrix.python}}
       - name: Install colcon-cargo
-        run: |
-          sudo pip3 install git+https://github.com/colcon/colcon-cargo.git
+        run: python -m pip install -U git+https://github.com/colcon/colcon-cargo.git
       - uses: colcon/ci@v1
