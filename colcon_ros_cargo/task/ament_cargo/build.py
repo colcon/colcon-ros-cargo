@@ -17,7 +17,7 @@ logger = colcon_logger.getChild(__name__)
 # Some logic needs to be executed once per run.
 # There are no colcon hooks for this, so it is shoehorned into the build step
 # with a global.
-ws_package_paths = None
+package_paths = None
 
 
 class AmentCargoBuildTask(CargoBuildTask):
@@ -49,18 +49,23 @@ class AmentCargoBuildTask(CargoBuildTask):
     def _prepare(self, env, additional_hooks):
         args = self.context.args
 
-        global ws_package_paths
-        if ws_package_paths is None:
+        global package_paths
+        if package_paths is None:
             if args.lookup_in_workspace:
-                ws_package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
+                package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
             else:
-                ws_package_paths = {}
+                package_paths = {}
 
-        # Scan the install dirs, aka prefixes.
-        install_package_paths = find_installed_cargo_packages(env)
-        # Override paths in install_package_paths with those in ws_package_paths
-        # If args.lookup_in_workspace is not given, this does nothing
-        package_paths = {**install_package_paths, **ws_package_paths}
+        # Scan the install dirs, aka prefixes. Note that only those prefixes
+        # will be scanned that are a dependency of the current package.
+        new_package_paths = find_installed_cargo_packages(env)
+        # The new_package_paths cover only the dependencies of the
+        # current package, but .cargo/config.toml should contain all Rust
+        # packages seen during the build process (so that you can afterwards
+        # use cargo for every package in the workspace).
+        # Hence, the installed package paths need to be accumulated.
+        new_package_paths.update(package_paths)
+        package_paths = new_package_paths
         write_cargo_config_toml(package_paths)
 
         additional_hooks += create_environment_hook(
