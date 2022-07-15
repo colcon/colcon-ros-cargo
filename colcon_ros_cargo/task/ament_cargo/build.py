@@ -100,7 +100,10 @@ def write_cargo_config_toml(package_paths):
     config_dir = Path.cwd() / '.cargo'
     config_dir.mkdir(exist_ok=True)
     cargo_config_toml_out = config_dir / 'config.toml'
-    cargo_config_toml_out.unlink(missing_ok=True)
+    try:
+        cargo_config_toml_out.unlink()
+    except FileNotFoundError:
+        pass
     toml.dump(content, cargo_config_toml_out.open('w'))
 
 
