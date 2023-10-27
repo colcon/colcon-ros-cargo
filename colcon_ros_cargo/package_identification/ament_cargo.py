@@ -3,6 +3,7 @@
 from colcon_cargo.package_identification.cargo \
     import CargoPackageIdentification
 
+from colcon_core.package_identification import logger
 from colcon_core.package_identification \
     import PackageIdentificationExtensionPoint
 from colcon_core.plugin_system import satisfies_version
@@ -22,17 +23,25 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
             '^1.0')
 
     def identify(self, metadata):  # noqa: D102
-        if metadata.type is not None and metadata.type != 'ament_cargo':
-            return
+        from catkin_pkg.package import parse_package
 
-        cargo_toml = metadata.path / 'Cargo.toml'
-        if not cargo_toml.is_file():
+        if metadata.type is not None and metadata.type != 'ament_cargo':
             return
 
         package_xml = metadata.path / 'package.xml'
         if not package_xml.is_file():
             return
 
+        pkg_desc = parse_package(package_xml)
+
+        if pkg_desc.get_build_type() != 'ament_cargo':
+            return
+
+        cargo_toml = metadata.path / 'Cargo.toml'
+        if not cargo_toml.is_file():
+            logger.warn('Got build type ament_cargo but could not find "Cargo.toml"')
+            raise RuntimeError('Got build type ament_cargo but could not find "Cargo.toml"')
+       
         metadata.type = 'ament_cargo'
         pkg = _get_package(str(metadata.path))
 
