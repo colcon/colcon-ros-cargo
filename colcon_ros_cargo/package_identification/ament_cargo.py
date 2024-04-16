@@ -25,6 +25,10 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
         if metadata.type is not None and metadata.type != 'ament_cargo':
             return
 
+        cmakelists = metadata.path / 'CMakeLists.txt'
+        if cmakelists.is_file():
+            return
+        
         cargo_toml = metadata.path / 'Cargo.toml'
         if not cargo_toml.is_file():
             return
