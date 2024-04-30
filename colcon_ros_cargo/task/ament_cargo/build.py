@@ -45,6 +45,14 @@ class AmentCargoBuildTask(CargoBuildTask):
             'By default, dependencies are looked up only in the installation '
             'prefixes. This option is useful for setting up a '
             '.cargo/config.toml for subsequent builds with cargo.')
+        parser.add_argument(
+            '--config-path',
+            type=Path,
+            help='The path to store the .cargo/config.toml '
+            'By default, the configuration will be stored at the '
+            'colcon workspace top level directory. Use this option to '
+            'indicate a path above the resolved path of the package sources '
+            '(e.g the pointed path if the source is under a symbolic link)')
 
     def _prepare(self, env, additional_hooks):
         args = self.context.args
@@ -66,7 +74,7 @@ class AmentCargoBuildTask(CargoBuildTask):
         # Hence, the installed package paths need to be accumulated.
         new_package_paths.update(package_paths)
         package_paths = new_package_paths
-        write_cargo_config_toml(package_paths)
+        self.write_cargo_config_toml(package_paths)
 
         additional_hooks += create_environment_hook(
             'ament_prefix_path',
@@ -93,19 +101,33 @@ class AmentCargoBuildTask(CargoBuildTask):
     def _install_cmd(self, cargo_args):  # noqa: D102
         pass
 
+    def write_cargo_config_toml(self, package_paths):
+        """Write the resolved package paths to config.toml.
 
-def write_cargo_config_toml(package_paths):
-    """Write the resolved package paths to config.toml.
-
-    :param package_paths: A mapping of package names to paths
-    """
-    patches = {pkg: {'path': str(path)} for pkg, path in package_paths.items()}
-    content = {'patch': {'crates-io': patches}}
-    config_dir = Path.cwd() / '.cargo'
-    config_dir.mkdir(exist_ok=True)
-    cargo_config_toml_out = config_dir / 'config.toml'
-    with cargo_config_toml_out.open('w') as toml_file:
-        toml.dump(content, toml_file)
+        :param package_paths: A mapping of package names to paths
+        """
+        args = self.context.args
+        src_dir = Path(self.context.pkg.path)
+        patches = {pkg: {'path': str(path)} for pkg, path in package_paths.items()}
+        content = {'patch': {'crates-io': patches}}
+        if args.config_path:
+            config_dir = args.config_path.resolve() / '.cargo'
+        else:
+            config_dir = Path.cwd() / '.cargo'
+            # The current package directory might be a link to another directory.
+            # However, cargo only looks for configurations in the package directory
+            # and in all its parent directories.
+            # Hence, if the package directory is link, ./cargo/config.toml
+            # should be installed above the directory pointed to
+            # in order cargo to necessarily hit it.
+            if src_dir.absolute() != src_dir.resolve():
+                logger.warn('The package source path may be under a symbolic link. '
+                    'Use --config-path option to store .cargo/config.toml '
+                    'in a way it will be hit by cargo')
+        config_dir.mkdir(exist_ok=True)
+        cargo_config_toml_out = config_dir / 'config.toml'
+        cargo_config_toml_out.unlink(missing_ok=True)
+        toml.dump(content, cargo_config_toml_out.open('w'))
 
 
 def find_installed_cargo_packages(env):
