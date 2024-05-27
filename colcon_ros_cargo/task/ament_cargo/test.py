@@ -56,4 +56,13 @@ class AmentCargoTestTask(TaskExtensionPoint):
         if rc.returncode:
             self.context.put_event_into_queue(TestFailure(pkg.name))
             # the return code should still be 0
+            return 0
+
+        rc = await run(
+            self.context,
+            [CARGO_EXECUTABLE, 'fmt', '--check'],
+            cwd=args.path, env=env, capture_output=True)
+        if rc.returncode:
+            self.context.put_event_into_queue(TestFailure(pkg.name))
+
         return 0
