@@ -18,5 +18,3 @@ After building, run binaries with `ros2 run`.
 This is by far not a perfect build system.
 
 Notably, there is _quadratic_ build cost as a function of the dependency chain length. To illustrate this, assume there are packages A, B and C, where C depends on B and B depends on A. If colcon builds this workspace, it builds A first, then B, then C. However, Cargo will _also_ build all the dependencies, i.e., to build B, Cargo will build A again, and to build C, it will build A and B again.
-
-`colcon test` is not yet supported.
