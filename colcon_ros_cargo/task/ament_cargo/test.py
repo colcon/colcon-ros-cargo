@@ -14,7 +14,7 @@ from colcon_core.task import TaskExtensionPoint
 logger = colcon_logger.getChild(__name__)
 
 
-class CargoTestTask(TaskExtensionPoint):
+class AmentCargoTestTask(TaskExtensionPoint):
     """Test Cargo packages."""
 
     def __init__(self):  # noqa: D107
