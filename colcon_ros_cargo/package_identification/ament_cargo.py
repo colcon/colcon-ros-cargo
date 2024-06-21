@@ -2,11 +2,9 @@
 
 from colcon_cargo.package_identification.cargo \
     import CargoPackageIdentification
-
 from colcon_core.package_identification \
     import PackageIdentificationExtensionPoint
 from colcon_core.plugin_system import satisfies_version
-
 from colcon_ros.package_identification.ros import _get_package
 
 
