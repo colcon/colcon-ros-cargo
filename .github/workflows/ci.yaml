@@ -1,0 +1,13 @@
+---
+name: Run tests
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+jobs:
+  pytest:
+    uses: colcon/ci/.github/workflows/pytest.yaml@main
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
