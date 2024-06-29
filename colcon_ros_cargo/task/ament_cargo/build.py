@@ -34,6 +34,12 @@ class AmentCargoBuildTask(CargoBuildTask):
     """
 
     def __init__(self):  # noqa: D107
+        """
+        Initialize the AmentCargoBuildTask.
+
+        This method calls the __init__ method of the parent class CargoBuildTask
+        and checks the version compatibility.
+        """
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, '^1.0')
 
