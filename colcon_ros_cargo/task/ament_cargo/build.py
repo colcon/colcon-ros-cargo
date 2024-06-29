@@ -44,6 +44,15 @@ class AmentCargoBuildTask(CargoBuildTask):
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, '^1.0')
 
     def add_arguments(self, *, parser):  # noqa: D102
+        """
+        Add command-line arguments for the AmentCargoBuildTask.
+
+        This method adds an argument to the parser for looking up dependencies
+        in the workspace directory.
+
+        Args:
+            parser: The argument parser to add arguments to.
+        """
         parser.add_argument(
             '--lookup-in-workspace',
             action='store_true',
