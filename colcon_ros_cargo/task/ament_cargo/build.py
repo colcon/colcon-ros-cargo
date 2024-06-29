@@ -125,7 +125,8 @@ class AmentCargoBuildTask(CargoBuildTask):
 
 
 def write_cargo_config_toml(package_paths):
-    """Write the resolved package paths to config.toml.
+    """
+    Write the resolved package paths to config.toml.
 
     :param package_paths: A mapping of package names to paths
     """
