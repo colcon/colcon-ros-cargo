@@ -18,6 +18,17 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
         )
 
     def identify(self, metadata):  # noqa: D102
+        """
+        Identify an Ament Cargo package based on the provided metadata.
+
+        This method checks if the package is an Ament Cargo package by looking for both
+        `Cargo.toml` and `package.xml` files in the package's path. If found, it extracts
+        the package name and dependencies from the `package.xml` file and updates the
+        metadata accordingly.
+
+        Args:
+            metadata (PackageMetadata): The metadata of the package to identify.
+        """
         if metadata.type is not None and metadata.type != "ament_cargo":
             return
 
