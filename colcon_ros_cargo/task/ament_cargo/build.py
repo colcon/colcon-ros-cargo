@@ -35,16 +35,17 @@ class AmentCargoBuildTask(CargoBuildTask):
 
     def __init__(self):  # noqa: D107
         super().__init__()
-        satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, '^1.0')
+        satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, "^1.0")
 
     def add_arguments(self, *, parser):  # noqa: D102
         parser.add_argument(
-            '--lookup-in-workspace',
-            action='store_true',
-            help='Look up dependencies in the workspace directory. '
-            'By default, dependencies are looked up only in the installation '
-            'prefixes. This option is useful for setting up a '
-            '.cargo/config.toml for subsequent builds with cargo.')
+            "--lookup-in-workspace",
+            action="store_true",
+            help="Look up dependencies in the workspace directory. "
+            "By default, dependencies are looked up only in the installation "
+            "prefixes. This option is useful for setting up a "
+            ".cargo/config.toml for subsequent builds with cargo.",
+        )
 
     def _prepare(self, env, additional_hooks):
         args = self.context.args
@@ -52,7 +53,9 @@ class AmentCargoBuildTask(CargoBuildTask):
         global package_paths
         if package_paths is None:
             if args.lookup_in_workspace:
-                package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
+                package_paths = find_workspace_cargo_packages(
+                    args.build_base, args.install_base
+                )  # noqa: E501
             else:
                 package_paths = {}
 
@@ -69,24 +72,29 @@ class AmentCargoBuildTask(CargoBuildTask):
         write_cargo_config_toml(package_paths)
 
         additional_hooks += create_environment_hook(
-            'ament_prefix_path',
+            "ament_prefix_path",
             Path(self.context.args.install_base),
             self.context.pkg.name,
-            'AMENT_PREFIX_PATH',
+            "AMENT_PREFIX_PATH",
             self.context.args.install_base,
-            mode='prepend')
+            mode="prepend",
+        )
 
     def _build_cmd(self, cargo_args):
         args = self.context.args
         src_dir = Path(self.context.pkg.path).resolve()
-        manifest_path = str(src_dir / 'Cargo.toml')
+        manifest_path = str(src_dir / "Cargo.toml")
         return [
-            CARGO_EXECUTABLE, 'ament-build',
-            '--install-base', args.install_base,
-            '--',
-            '--manifest-path', manifest_path,
-            '--target-dir', args.build_base,
-            '--quiet'
+            CARGO_EXECUTABLE,
+            "ament-build",
+            "--install-base",
+            args.install_base,
+            "--",
+            "--manifest-path",
+            manifest_path,
+            "--target-dir",
+            args.build_base,
+            "--quiet",
         ] + cargo_args
 
 
@@ -95,13 +103,13 @@ def write_cargo_config_toml(package_paths):
 
     :param package_paths: A mapping of package names to paths
     """
-    patches = {pkg: {'path': str(path)} for pkg, path in package_paths.items()}
-    content = {'patch': {'crates-io': patches}}
-    config_dir = Path.cwd() / '.cargo'
+    patches = {pkg: {"path": str(path)} for pkg, path in package_paths.items()}
+    content = {"patch": {"crates-io": patches}}
+    config_dir = Path.cwd() / ".cargo"
     config_dir.mkdir(exist_ok=True)
-    cargo_config_toml_out = config_dir / 'config.toml'
+    cargo_config_toml_out = config_dir / "config.toml"
     cargo_config_toml_out.unlink(missing_ok=True)
-    toml.dump(content, cargo_config_toml_out.open('w'))
+    toml.dump(content, cargo_config_toml_out.open("w"))
 
 
 def find_installed_cargo_packages(env):
@@ -112,25 +120,30 @@ def find_installed_cargo_packages(env):
     :rtype dict(str, Path)
     """
     prefix_for_package = {}
-    ament_prefix_path_var = env.get('AMENT_PREFIX_PATH')
+    ament_prefix_path_var = env.get("AMENT_PREFIX_PATH")
     if ament_prefix_path_var is None:
-        logger.warn('AMENT_PREFIX_PATH is empty. '
-                    'You probably intended to source a ROS installation.')
+        logger.warn(
+            "AMENT_PREFIX_PATH is empty. "
+            "You probably intended to source a ROS installation."
+        )
         prefixes = []
     else:
         prefixes = ament_prefix_path_var.split(os.pathsep)
     for prefix in prefixes:
         prefix = Path(prefix)
-        packages_dir = prefix / 'share' / 'ament_index' / 'resource_index' \
-            / 'rust_packages'
+        packages_dir = (
+            prefix / "share" / "ament_index" / "resource_index" / "rust_packages"
+        )
         if packages_dir.exists():
             packages = {path.name for path in packages_dir.iterdir()}
         else:
             packages = set()
         for pkg in packages:
             prefix_for_package[pkg] = prefix
-    return {pkg: str(prefix / 'share' / pkg / 'rust')
-            for pkg, prefix in prefix_for_package.items()}
+    return {
+        pkg: str(prefix / "share" / pkg / "rust")
+        for pkg, prefix in prefix_for_package.items()
+    }
 
 
 def find_workspace_cargo_packages(build_base, install_base):
@@ -141,24 +154,24 @@ def find_workspace_cargo_packages(build_base, install_base):
     :rtype dict(str, Path)
     """
     path_for_package = {}
-    for (dirpath, dirnames, filenames) in os.walk(Path.cwd(), topdown=True):
+    for dirpath, dirnames, filenames in os.walk(Path.cwd(), topdown=True):
         # Users will often build the workspace several times into differently
         # named install directories, and we don't know their names. So if we
         # just scan through the current working directory, we'll probably find
         # Rust packages in those install directories. That's not what we want,
         # so install directories (identified by a setup.sh file) should be
         # skipped.
-        if dirpath == install_base or (Path(dirpath) / 'setup.sh').exists():
+        if dirpath == install_base or (Path(dirpath) / "setup.sh").exists():
             # Do not descend into this directory
             dirnames[:] = []
-        elif dirpath == build_base or (Path(dirpath) / 'COLCON_IGNORE').exists():  # noqa: E501
+        elif dirpath == build_base or (Path(dirpath) / "COLCON_IGNORE").exists():  # noqa: E501
             # In particular, build dirs have a COLCON_IGNORE
             # Do not descend into this directory
             dirnames[:] = []
-        elif 'Cargo.toml' in filenames:
+        elif "Cargo.toml" in filenames:
             try:
-                cargo_toml = toml.load(Path(dirpath) / 'Cargo.toml')
-                name = cargo_toml['package']['name']
+                cargo_toml = toml.load(Path(dirpath) / "Cargo.toml")
+                name = cargo_toml["package"]["name"]
                 path_for_package[name] = dirpath
             except toml.decoder.TomlDecodeError:
                 pass
