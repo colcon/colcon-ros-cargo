@@ -63,6 +63,17 @@ class AmentCargoBuildTask(CargoBuildTask):
         )
 
     def _prepare(self, env, additional_hooks):
+        """
+        Prepare the build environment.
+
+        This method resolves the package paths for dependencies, writes the
+        resolved paths to a .cargo/config.toml file, and creates an environment
+        hook for the AMENT_PREFIX_PATH.
+
+        Args:
+            env: The environment to prepare.
+            additional_hooks: Additional hooks to be executed.
+        """
         args = self.context.args
 
         global package_paths
