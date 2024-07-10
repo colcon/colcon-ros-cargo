@@ -16,8 +16,3 @@ class AmentCargoTestTask(CargoTestTask):
     def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, '^1.0')
-
-    def add_arguments(self, *, parser):  # noqa: D102
-        pass
-
-    # def _test_cmd(self, cargo_args):
