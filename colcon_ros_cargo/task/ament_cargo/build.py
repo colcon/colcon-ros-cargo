@@ -92,6 +92,10 @@ class AmentCargoBuildTask(CargoBuildTask):
             '--tests',
         ] + cargo_args
 
+    # Installation is done by cargo ament-build
+    def _install_cmd(self, cargo_args):  #noqa: D102
+        pass
+
 
 def write_cargo_config_toml(package_paths):
     """Write the resolved package paths to config.toml.
