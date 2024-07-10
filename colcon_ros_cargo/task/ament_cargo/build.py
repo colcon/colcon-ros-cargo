@@ -93,7 +93,7 @@ class AmentCargoBuildTask(CargoBuildTask):
         ] + cargo_args
 
     # Installation is done by cargo ament-build
-    def _install_cmd(self, cargo_args):  #noqa: D102
+    def _install_cmd(self, cargo_args):  # noqa: D102
         pass
 
 
