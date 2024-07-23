@@ -8,6 +8,14 @@ on:
 
 jobs:
   pytest:
-    uses: colcon/ci/.github/workflows/pytest.yaml@main
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+      # - run: cargo install cargo-ament-build
+      # Use local action because running a reusable workflow as a step
+      # is not currently possible and we need to install cargo-ament-build
+      # for the CI to be successful
+      # ref https://github.com/actions/runner/issues/2079
+      - uses: ./.github/actions/local_pytest
