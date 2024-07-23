@@ -1,0 +1,11 @@
+<package format="3">
+  <name>rust-sample-package</name>
+  <version>0.0.1</version>
+  <description>A sample package for testing</description>
+  <maintainer email="lucadv@intrinsic.ai">Luca Della Vedova</maintainer>
+  <license>Apache License 2.0</license>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

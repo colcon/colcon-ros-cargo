@@ -105,7 +105,8 @@ def write_cargo_config_toml(package_paths):
     config_dir.mkdir(exist_ok=True)
     cargo_config_toml_out = config_dir / 'config.toml'
     cargo_config_toml_out.unlink(missing_ok=True)
-    toml.dump(content, cargo_config_toml_out.open('w'))
+    with cargo_config_toml_out.open('w') as toml_file:
+        toml.dump(content, toml_file)
 
 
 def find_installed_cargo_packages(env):
@@ -118,8 +119,8 @@ def find_installed_cargo_packages(env):
     prefix_for_package = {}
     ament_prefix_path_var = env.get('AMENT_PREFIX_PATH')
     if ament_prefix_path_var is None:
-        logger.warn('AMENT_PREFIX_PATH is empty. '
-                    'You probably intended to source a ROS installation.')
+        logger.warning('AMENT_PREFIX_PATH is empty. '
+                       'You probably intended to source a ROS installation.')
         prefixes = []
     else:
         prefixes = ament_prefix_path_var.split(os.pathsep)
