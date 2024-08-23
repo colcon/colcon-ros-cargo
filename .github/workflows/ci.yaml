@@ -10,6 +10,6 @@ jobs:
   pytest:
     uses: ./.github/workflows/pytest.yaml
     with:
-      prerun-step: 'cargo install cargo-ament-build'
+      prerun-step: 'cargo install --git https://github.com/luca-della-vedova/cargo-ament-build.git --branch luca/binaries_on_windows'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
