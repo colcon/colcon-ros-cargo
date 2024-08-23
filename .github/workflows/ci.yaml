@@ -8,7 +8,7 @@ on:
 
 jobs:
   pytest:
-    uses: luca-della-vedova/ci/.github/workflows/pytest.yaml@add_init
+    uses: ./.github/workflows/pytest.yaml
     with:
       prerun-step: 'cargo install cargo-ament-build'
     secrets:
