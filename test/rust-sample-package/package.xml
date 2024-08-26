@@ -2,7 +2,7 @@
   <name>rust-sample-package</name>
   <version>0.0.1</version>
   <description>A sample package for testing</description>
-  <maintainer email="lucadv@intrinsic.ai">Luca Della Vedova</maintainer>
+  <maintainer email="notareal@email.address">Test McTestface</maintainer>
   <license>Apache License 2.0</license>
 
   <export>
