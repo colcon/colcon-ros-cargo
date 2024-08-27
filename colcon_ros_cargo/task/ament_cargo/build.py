@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-import sys
 
 from colcon_cargo.task.cargo import CARGO_EXECUTABLE
 from colcon_cargo.task.cargo.build import CargoBuildTask
@@ -105,15 +104,6 @@ def write_cargo_config_toml(package_paths):
     config_dir = Path.cwd() / '.cargo'
     config_dir.mkdir(exist_ok=True)
     cargo_config_toml_out = config_dir / 'config.toml'
-    # missing_ok flag was introduced in Python 3.8, older versions
-    # raise a FileNotFoundError exception
-    if sys.version_info.minor >= 8:
-        cargo_config_toml_out.unlink(missing_ok=True)
-    else:
-        try:
-            cargo_config_toml_out.unlink()
-        except FileNotFoundError:
-            pass
     with cargo_config_toml_out.open('w') as toml_file:
         toml.dump(content, toml_file)
 
