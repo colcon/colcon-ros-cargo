@@ -1,0 +1,76 @@
+# Forked from colcon/ci to allow cargo install step, ref https://github.com/colcon/ci/pull/33
+# TODO(anyone) revisit if a better solution pops up from the upstream PR
+---
+name: Run tests
+
+on:  # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      codecov:
+        description: 'run codecov action after testing'
+        default: true
+        required: false
+        type: boolean
+      matrix-filter:
+        description: 'jq filter string indicating which configuration(s)
+          should be included'
+        default: '.'
+        required: false
+        type: string
+      repository:
+        description: 'repository to test if different from current'
+        default: ''
+        required: false
+        type: string
+      setup-repository:
+        description: 'repository used during job setup'
+        default: 'colcon/ci'
+        required: false
+        type: string
+      prerun-step:
+        description: 'instruction to run before the testing'
+        default: ''
+        required: false
+        type: string
+    secrets:
+      CODECOV_TOKEN:
+        description: 'token to use when running codecov action after testing'
+        required: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      strategy: ${{ steps.load.outputs.strategy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.setup-repository }}
+      - id: load
+        run: |
+          strategy=$(jq -c -M '${{ inputs.matrix-filter }}' strategy.json)
+          echo "strategy=${strategy}" >> $GITHUB_OUTPUT
+
+  pytest:
+    needs: [setup]
+    strategy: ${{ fromJson(needs.setup.outputs.strategy) }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+      - run: bash -c "${{ inputs.prerun-step }}"
+        if: ${{ inputs.prerun-step != ''}}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.setup-repository }}
+          path: ./.github-ci-action-repo
+      - uses: ./.github-ci-action-repo
+      - uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        if: ${{ inputs.codecov }}
