@@ -127,7 +127,8 @@ class AmentCargoBuildTask(CargoBuildTask):
         config_dir.mkdir(exist_ok=True)
         cargo_config_toml_out = config_dir / 'config.toml'
         cargo_config_toml_out.unlink(missing_ok=True)
-        toml.dump(content, cargo_config_toml_out.open('w'))
+        with cargo_config_toml_out.open('w') as toml_file:
+            toml.dump(content, toml_file)
 
 
 def find_installed_cargo_packages(env):
