@@ -1,10 +1,8 @@
 # Licensed under the Apache License, Version 2.0
 
+from catkin_pkg.package import parse_package
 from colcon_cargo.package_identification.cargo \
     import CargoPackageIdentification
-
-from catkin_pkg.package import parse_package
-
 from colcon_core.logging import colcon_logger
 from colcon_core.package_identification \
     import PackageIdentificationExtensionPoint
@@ -12,6 +10,7 @@ from colcon_core.plugin_system import satisfies_version
 from colcon_ros.package_identification.ros import _get_package
 
 logger = colcon_logger.getChild(__name__)
+
 
 class AmentCargoPackageIdentification(CargoPackageIdentification):
     """Identify Cargo packages with `Cargo.toml` and `package.xml` files."""
@@ -40,9 +39,10 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
 
         cargo_toml = metadata.path / 'Cargo.toml'
         if not cargo_toml.is_file():
-            logger.warn('Got build type ament_cargo but could not find "Cargo.toml"')
+            logger.warn(
+                'Got build type ament_cargo but could not find "Cargo.toml"')
             return
-       
+
         metadata.type = 'ament_cargo'
         pkg = _get_package(str(metadata.path))
 
