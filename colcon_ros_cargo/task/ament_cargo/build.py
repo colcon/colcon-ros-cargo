@@ -34,10 +34,25 @@ class AmentCargoBuildTask(CargoBuildTask):
     """
 
     def __init__(self):  # noqa: D107
+        """
+        Initialize the AmentCargoBuildTask.
+
+        This method calls the __init__ method of the parent class CargoBuildTask
+        and checks the version compatibility.
+        """
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, '^1.0')
 
     def add_arguments(self, *, parser):  # noqa: D102
+        """
+        Add command-line arguments for the AmentCargoBuildTask.
+
+        This method adds an argument to the parser for looking up dependencies
+        in the workspace directory.
+
+        Args:
+            parser: The argument parser to add arguments to.
+        """
         parser.add_argument(
             '--lookup-in-workspace',
             action='store_true',
@@ -47,6 +62,17 @@ class AmentCargoBuildTask(CargoBuildTask):
             '.cargo/config.toml for subsequent builds with cargo.')
 
     def _prepare(self, env, additional_hooks):
+        """
+        Prepare the build environment.
+
+        This method resolves the package paths for dependencies, writes the
+        resolved paths to a .cargo/config.toml file, and creates an environment
+        hook for the AMENT_PREFIX_PATH.
+
+        Args:
+            env: The environment to prepare.
+            additional_hooks: Additional hooks to be executed.
+        """
         args = self.context.args
 
         global package_paths
