@@ -9,7 +9,5 @@ on:
 jobs:
   pytest:
     uses: ./.github/workflows/pytest.yaml
-    with:
-      prerun-step: 'cargo install cargo-ament-build'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
