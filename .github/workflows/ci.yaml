@@ -8,8 +8,8 @@ on:
 
 jobs:
   pytest:
-    uses: ./.github/workflows/pytest.yaml
+    uses: colcon/ci/.github/workflows/pytest.yaml@main
     with:
-      prerun-step: 'cargo install cargo-ament-build'
+      matrix-filter: del(.matrix.include[] | select(.os == "ubuntu-20.04"))
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
