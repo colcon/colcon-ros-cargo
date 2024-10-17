@@ -9,5 +9,7 @@ on:
 jobs:
   pytest:
     uses: colcon/ci/.github/workflows/pytest.yaml@main
+    with:
+      matrix-filter: del(.matrix.include[] | select(.os == "ubuntu-20.04"))
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
