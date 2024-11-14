@@ -1,5 +1,7 @@
 # Licensed under the Apache License, Version 2.0
 
+import subprocess
+
 from catkin_pkg.package import parse_package
 from colcon_cargo.package_identification.cargo \
     import CargoPackageIdentification
@@ -41,6 +43,14 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
         if not cargo_toml.is_file():
             logger.warn(
                 'Got build type ament_cargo but could not find "Cargo.toml"')
+            return
+
+        ament_build = 'cargo ament-build --help'.split()
+        if subprocess.run(ament_build, capture_output=True).returncode != 0:
+            logger.error(
+                'ament_cargo package found but cargo ament-build was not '
+                'detected. Please install it by running: '
+                '`cargo install cargo-ament-build`')
             return
 
         metadata.type = 'ament_cargo'
