@@ -47,10 +47,10 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
 
         ament_build = 'cargo ament-build --help'.split()
         if subprocess.run(ament_build, capture_output=True).returncode != 0:
-            if print_ament_cargo_warning_once():
+            if _print_ament_cargo_warning_once():
                 logger.error(
-                    '\n\nament_cargo package found but cargo ament-build was not '
-                    'detected.'
+                    '\n\nament_cargo package found but cargo ament-build was '
+                    'not detected.'
                     '\n\nPlease install it by running:'
                     '\n $ cargo install cargo-ament-build\n')
             return
@@ -67,7 +67,8 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
         metadata.dependencies['test'] = \
             {dep.name for dep in pkg.test_depends}
 
-def print_ament_cargo_warning_once():
+
+def _print_ament_cargo_warning_once():
     global has_printed_ament_cargo_warning
     try:
         # The following line will throw an exception if the global variable
