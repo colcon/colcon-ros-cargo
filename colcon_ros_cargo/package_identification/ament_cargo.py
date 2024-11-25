@@ -1,5 +1,7 @@
 # Licensed under the Apache License, Version 2.0
 
+import subprocess
+
 from catkin_pkg.package import parse_package
 from colcon_cargo.package_identification.cargo \
     import CargoPackageIdentification
@@ -43,6 +45,16 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
                 'Got build type ament_cargo but could not find "Cargo.toml"')
             return
 
+        ament_build = 'cargo ament-build --help'.split()
+        if subprocess.run(ament_build, capture_output=True).returncode != 0:
+            if _print_ament_cargo_warning_once():
+                logger.error(
+                    '\n\nament_cargo package found but cargo ament-build was '
+                    'not detected.'
+                    '\n\nPlease install it by running:'
+                    '\n $ cargo install cargo-ament-build\n')
+            return
+
         metadata.type = 'ament_cargo'
         pkg = _get_package(str(metadata.path))
 
@@ -54,3 +66,20 @@ class AmentCargoPackageIdentification(CargoPackageIdentification):
             {dep.name for dep in pkg.run_depends}
         metadata.dependencies['test'] = \
             {dep.name for dep in pkg.test_depends}
+
+
+def _print_ament_cargo_warning_once():
+    global has_printed_ament_cargo_warning
+    try:
+        # The following line will throw an exception if the global variable
+        # has never been initialized
+        has_printed_ament_cargo_warning
+    except NameError:
+        # We want to initialize the global variable to false the first time
+        has_printed_ament_cargo_warning = False
+
+    if not has_printed_ament_cargo_warning:
+        has_printed_ament_cargo_warning = True
+        return True
+
+    return False
