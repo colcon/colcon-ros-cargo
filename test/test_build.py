@@ -13,7 +13,7 @@ from colcon_core.event_handler.console_direct import ConsoleDirectEventHandler
 from colcon_core.package_descriptor import PackageDescriptor
 from colcon_core.subprocess import new_event_loop
 from colcon_core.task import TaskContext
-from colcon_ros_cargo.package_identification.ament_cargo import AmentCargoPackageIdentification  # noqa: E501
+from colcon_ros.package_identification.ros import RosPackageIdentification
 from colcon_ros_cargo.task.ament_cargo.build import AmentCargoBuildTask
 from colcon_ros_cargo.task.ament_cargo.test import AmentCargoTestTask
 import pytest
@@ -34,10 +34,10 @@ def monkey_patch_put_event_into_queue(monkeypatch):
 
 
 def test_package_identification():
-    cpi = AmentCargoPackageIdentification()
+    cpi = RosPackageIdentification()
     desc = PackageDescriptor(test_project_path)
     cpi.identify(desc)
-    assert desc.type == 'ament_cargo'
+    assert desc.type == 'ros.ament_cargo'
     assert desc.name == TEST_PACKAGE_NAME
 
 
@@ -49,7 +49,7 @@ def test_build_and_test_package():
     asyncio.set_event_loop(event_loop)
 
     try:
-        cpi = AmentCargoPackageIdentification()
+        cpi = RosPackageIdentification()
         package = PackageDescriptor(test_project_path)
         cpi.identify(package)
 
