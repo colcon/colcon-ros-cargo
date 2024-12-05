@@ -50,12 +50,11 @@ class AmentCargoBuildTask(CargoBuildTask):
     def _prepare(self, env, additional_hooks):
         ament_build = 'cargo ament-build --help'.split()
         if subprocess.run(ament_build, capture_output=True).returncode != 0:
-            if _print_ament_cargo_warning_once():
-                logger.error(
-                    '\n\nament_cargo package found but cargo ament-build was '
-                    'not detected.'
-                    '\n\nPlease install it by running:'
-                    '\n $ cargo install cargo-ament-build\n')
+            logger.error(
+                '\n\nament_cargo package found but cargo ament-build was '
+                'not detected.'
+                '\n\nPlease install it by running:'
+                '\n $ cargo install cargo-ament-build\n')
             return 1
 
         args = self.context.args
@@ -103,23 +102,6 @@ class AmentCargoBuildTask(CargoBuildTask):
     # Installation is done by cargo ament-build
     def _install_cmd(self, cargo_args):  # noqa: D102
         pass
-
-
-def _print_ament_cargo_warning_once():
-    global has_printed_ament_cargo_warning
-    try:
-        # The following line will throw an exception if the global variable
-        # has never been initialized
-        has_printed_ament_cargo_warning
-    except NameError:
-        # We want to initialize the global variable to false the first time
-        has_printed_ament_cargo_warning = False
-
-    if not has_printed_ament_cargo_warning:
-        has_printed_ament_cargo_warning = True
-        return True
-
-    return False
 
 
 def write_cargo_config_toml(package_paths):
