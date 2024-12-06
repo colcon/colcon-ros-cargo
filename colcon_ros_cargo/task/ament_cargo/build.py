@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import subprocess
 
 from colcon_cargo.task.cargo import CARGO_EXECUTABLE
 from colcon_cargo.task.cargo.build import CargoBuildTask
@@ -47,6 +48,15 @@ class AmentCargoBuildTask(CargoBuildTask):
             '.cargo/config.toml for subsequent builds with cargo.')
 
     def _prepare(self, env, additional_hooks):
+        ament_build = 'cargo ament-build --help'.split()
+        if subprocess.run(ament_build, capture_output=True).returncode != 0:
+            logger.error(
+                '\n\nament_cargo package found but cargo ament-build was '
+                'not detected.'
+                '\n\nPlease install it by running:'
+                '\n $ cargo install cargo-ament-build\n')
+            return 1
+
         args = self.context.args
 
         global package_paths
