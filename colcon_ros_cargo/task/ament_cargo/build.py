@@ -83,7 +83,7 @@ class AmentCargoBuildTask(CargoBuildTask):
             Path(self.context.args.install_base),
             self.context.pkg.name,
             'AMENT_PREFIX_PATH',
-            self.context.args.install_base,
+            '',
             mode='prepend')
 
     def _build_cmd(self, cargo_args):
