@@ -110,10 +110,23 @@ def write_cargo_config_toml(package_paths):
     :param package_paths: A mapping of package names to paths
     """
     patches = {pkg: {'path': str(path)} for pkg, path in package_paths.items()}
-    content = {'patch': {'crates-io': patches}}
+
     config_dir = Path.cwd() / '.cargo'
     config_dir.mkdir(exist_ok=True)
     cargo_config_toml_out = config_dir / 'config.toml'
+
+    if cargo_config_toml_out.exists():
+        with cargo_config_toml_out.open('r') as toml_file:
+            content = toml.load(toml_file)
+    else:
+        content = {}
+
+    if 'patch' not in content:
+        content['patch'] = {}
+
+    # remove old entries
+    content['patch']['crates-io'] = patches
+
     with cargo_config_toml_out.open('w') as toml_file:
         toml.dump(content, toml_file)
 
