@@ -15,6 +15,9 @@ from colcon_core.subprocess import new_event_loop
 from colcon_core.task import TaskContext
 from colcon_ros.package_identification.ros import RosPackageIdentification
 from colcon_ros_cargo.task.ament_cargo.build import AmentCargoBuildTask
+from colcon_ros_cargo.task.ament_cargo.build import (
+    find_installed_cargo_packages,
+)
 from colcon_ros_cargo.task.ament_cargo.test import AmentCargoTestTask
 import pytest
 
@@ -107,6 +110,48 @@ def test_build_and_test_package():
 
     finally:
         event_loop.close()
+
+
+def _make_rust_prefix(root, pkg_names):
+    """Create a fake ament prefix containing the given Rust package markers."""
+    root = Path(root)
+    rust_packages_dir = (
+        root / 'share' / 'ament_index' / 'resource_index' / 'rust_packages'
+    )
+    rust_packages_dir.mkdir(parents=True)
+    for pkg in pkg_names:
+        (rust_packages_dir / pkg).touch()
+        (root / 'share' / pkg / 'rust').mkdir(parents=True)
+    return root
+
+
+def _rust_path(prefix, pkg):
+    return str(prefix / 'share' / pkg / 'rust')
+
+
+def test_find_installed_cargo_packages_overlay_first_wins():
+    """First entry in AMENT_PREFIX_PATH must win for shared package names."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        overlay = _make_rust_prefix(
+            tmpdir / 'overlay', ['std_msgs', 'my_pkg'])
+        distro = _make_rust_prefix(
+            tmpdir / 'distro', ['std_msgs', 'other_pkg'])
+
+        env = {'AMENT_PREFIX_PATH': os.pathsep.join(
+            [str(overlay), str(distro)])}
+        result = find_installed_cargo_packages(env)
+
+        # std_msgs is in both prefixes; the overlay (listed first) wins.
+        assert result['std_msgs'] == _rust_path(overlay, 'std_msgs')
+        # Packages present in only one prefix resolve to that prefix.
+        assert result['my_pkg'] == _rust_path(overlay, 'my_pkg')
+        assert result['other_pkg'] == _rust_path(distro, 'other_pkg')
+
+
+def test_find_installed_cargo_packages_empty_ament_prefix_path():
+    """An unset AMENT_PREFIX_PATH must return an empty mapping."""
+    assert find_installed_cargo_packages({}) == {}
 
 
 # Check the testing result file, expect cargo test and doc test to fail

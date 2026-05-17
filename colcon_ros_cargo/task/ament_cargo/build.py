@@ -142,7 +142,12 @@ def find_installed_cargo_packages(env):
         else:
             packages = set()
         for pkg in packages:
-            prefix_for_package[pkg] = prefix
+            # AMENT_PREFIX_PATH is ordered from highest to lowest priority,
+            # so the first prefix that contains a package wins. This mirrors
+            # ament_cmake / CMAKE_PREFIX_PATH semantics and ensures a local
+            # overlay rebuild takes precedence over the same package shipped
+            # in an underlay (e.g. /opt/ros/<distro>).
+            prefix_for_package.setdefault(pkg, prefix)
     return {pkg: str(prefix / 'share' / pkg / 'rust')
             for pkg, prefix in prefix_for_package.items()}
 
