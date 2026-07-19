@@ -1,5 +1,6 @@
 # Licensed under the Apache License, Version 2.0
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -46,6 +47,16 @@ class AmentCargoBuildTask(CargoBuildTask):
             'By default, dependencies are looked up only in the installation '
             'prefixes. This option is useful for setting up a '
             '.cargo/config.toml for subsequent builds with cargo.')
+        parser.add_argument(
+            '--cargo-config-per-package',
+            action='store_true',
+            help='Write a separate .cargo/config.toml into each package '
+            'source directory, containing only the [patch] entries the '
+            'package actually depends on, instead of a single workspace-wide '
+            'config listing every discovered package. This keeps each '
+            "package's Cargo.lock free of unused [[patch]] entries, so it "
+            'stays deterministic across machines and can be committed. '
+            'Implies --lookup-in-workspace.')
 
     def _prepare(self, env, additional_hooks):
         ament_build = 'cargo ament-build --help'.split()
@@ -61,7 +72,7 @@ class AmentCargoBuildTask(CargoBuildTask):
 
         global package_paths
         if package_paths is None:
-            if args.lookup_in_workspace:
+            if args.lookup_in_workspace or args.cargo_config_per_package:
                 package_paths = find_workspace_cargo_packages(args.build_base, args.install_base)  # noqa: E501
             else:
                 package_paths = {}
@@ -76,7 +87,11 @@ class AmentCargoBuildTask(CargoBuildTask):
         # Hence, the installed package paths need to be accumulated.
         new_package_paths.update(package_paths)
         package_paths = new_package_paths
-        write_cargo_config_toml(package_paths)
+
+        if args.cargo_config_per_package:
+            self._write_per_package_config(env)
+        else:
+            write_cargo_config_toml(package_paths)
 
         additional_hooks += create_environment_hook(
             'ament_prefix_path',
@@ -85,6 +100,33 @@ class AmentCargoBuildTask(CargoBuildTask):
             'AMENT_PREFIX_PATH',
             '',
             mode='prepend')
+
+    def _write_per_package_config(self, env):
+        """Write a minimal [patch] table into the package's config.toml.
+
+        The [patch.crates-io] table in the package's .cargo/config.toml is
+        replaced with only the patches that this package (or, for a Cargo
+        workspace, any of its members) actually resolves, so the resulting
+        Cargo.lock does not accumulate unused [[patch]] entries and is stable
+        regardless of which other packages are installed. The whole table is
+        rewritten each build, so patches for dependencies that have since been
+        removed do not linger. Any other content of an existing config.toml
+        (e.g. [target.*] or [build] settings) is preserved.
+
+        :param env: Environment dict for this package
+        """
+        pkg_dir = Path(self.context.pkg.path).resolve()
+        # write the full patch set so that `cargo metadata` can
+        # resolve every possible dependency of the package.
+        write_package_patch_config(package_paths, pkg_dir)
+
+        # let cargo report which of those patches are actually part
+        # of the resolved dependency graph.
+        used = find_used_packages(pkg_dir, package_paths, env)
+
+        # rewrite the table with only the patches that are used.
+        used_paths = {name: package_paths[name] for name in used}
+        write_package_patch_config(used_paths, pkg_dir)
 
     def _build_cmd(self, cargo_args):
         args = self.context.args
@@ -104,18 +146,124 @@ class AmentCargoBuildTask(CargoBuildTask):
         pass
 
 
-def write_cargo_config_toml(package_paths):
+def write_cargo_config_toml(package_paths, config_base=None):
     """Write the resolved package paths to config.toml.
 
     :param package_paths: A mapping of package names to paths
+    :param config_base: Directory in which to create the .cargo/config.toml.
+        Defaults to the current working directory (the workspace root).
     """
     patches = {pkg: {'path': str(path)} for pkg, path in package_paths.items()}
     content = {'patch': {'crates-io': patches}}
-    config_dir = Path.cwd() / '.cargo'
-    config_dir.mkdir(exist_ok=True)
+    if config_base is None:
+        config_base = Path.cwd()
+    config_dir = Path(config_base) / '.cargo'
+    config_dir.mkdir(parents=True, exist_ok=True)
     cargo_config_toml_out = config_dir / 'config.toml'
     with cargo_config_toml_out.open('w') as toml_file:
         toml.dump(content, toml_file)
+
+
+def write_package_patch_config(package_paths, config_base):
+    """Replace the [patch.crates-io] table in a package's config.toml.
+
+    Only the [patch.crates-io] table is rewritten, with exactly the given
+    patches. The whole table is replaced (never merged entry-by-entry), so
+    patches written by a previous build, including ones for dependencies
+    that have since been removed from the environment, do not linger. Every
+    other part of an existing config.toml is preserved as-is, including other
+    tables (e.g. [target.*], [build]), patches for non-crates.io sources, and
+    comments. config.toml is created if it does not exist.
+
+    :param package_paths: A mapping of package names to paths
+    :param config_base: Directory that contains the .cargo directory
+    """
+    # Imported lazily so that the extension still loads (for the default,
+    # workspace-wide mode) if tomlkit is not installed.
+    import tomlkit
+
+    config_dir = Path(config_base) / '.cargo'
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_toml = config_dir / 'config.toml'
+
+    if config_toml.exists():
+        document = tomlkit.parse(config_toml.read_text())
+    else:
+        document = tomlkit.document()
+
+    patch = document.get('patch')
+    if patch is None:
+        patch = tomlkit.table()
+        document['patch'] = patch
+
+    crates_io = tomlkit.table()
+    for name in sorted(package_paths):
+        entry = tomlkit.table()
+        entry['path'] = str(package_paths[name])
+        crates_io[name] = entry
+
+    patch['crates-io'] = crates_io
+    config_toml.write_text(tomlkit.dumps(document))
+
+
+def find_used_packages(pkg_dir, package_paths, env):
+    """Find which patched packages are in the resolved dependency graph.
+
+    Runs `cargo metadata`, which resolves dependencies using the patches
+    written to ``pkg_dir``, and returns the subset of ``package_paths`` that
+    actually appears in the resolved graph. For a Cargo workspace this is the
+    union across all of its members. If `cargo metadata` fails, all known
+    packages are returned so that the build can still proceed.
+
+    :param pkg_dir: The package (or Cargo workspace) directory
+    :param package_paths: A mapping of package names to paths (the universe of
+        packages that can be patched)
+    :param env: Environment dict for this package
+    :returns: The set of package names that are actually used
+    :rtype: set(str)
+    """
+    cmd = [CARGO_EXECUTABLE, 'metadata', '--format-version', '1']
+    result = subprocess.run(
+        cmd, cwd=str(pkg_dir), capture_output=True, env=env)
+
+    if result.returncode != 0:
+        logger.warning(
+            "'cargo metadata' failed while computing the patch set for "
+            "'{}'; falling back to patching all discovered packages.\n{}"
+            .format(pkg_dir, result.stderr.decode(errors='replace')))
+        return set(package_paths)
+
+    metadata = json.loads(result.stdout.decode())
+    return used_packages_from_metadata(metadata, package_paths)
+
+
+def used_packages_from_metadata(metadata, package_paths):
+    """Extract the used subset of ``package_paths`` from cargo metadata.
+
+    Members of the current Cargo workspace are excluded: they are resolved
+    locally by path rather than pulled from crates.io, so patching them would
+    only add an unused [[patch]] entry (and a package must not patch itself).
+
+    :param metadata: Parsed `cargo metadata` output
+    :param package_paths: A mapping of package names to paths
+    :returns: The set of package names present in the resolved graph
+    :rtype: set(str)
+    """
+    id_to_name = {
+        pkg['id']: pkg['name'] for pkg in metadata.get('packages', [])}
+
+    workspace_members = {
+        id_to_name.get(member)
+        for member in metadata.get('workspace_members', [])}
+
+    resolve = metadata.get('resolve') or {}
+
+    resolved_names = {
+        id_to_name.get(node['id']) for node in resolve.get('nodes', [])}
+
+    return {
+        name for name in resolved_names
+        if name in package_paths and name not in workspace_members}
 
 
 def find_installed_cargo_packages(env):
@@ -172,8 +320,11 @@ def find_workspace_cargo_packages(build_base, install_base):
         elif 'Cargo.toml' in filenames:
             try:
                 cargo_toml = toml.load(Path(dirpath) / 'Cargo.toml')
-                name = cargo_toml['package']['name']
-                path_for_package[name] = dirpath
             except toml.decoder.TomlDecodeError:
-                pass
+                continue
+            # Virtual manifests (a [workspace] with no [package]) have no
+            # name and cannot be patched; skip them.
+            name = cargo_toml.get('package', {}).get('name')
+            if name is not None:
+                path_for_package[name] = dirpath
     return path_for_package

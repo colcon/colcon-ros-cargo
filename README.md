@@ -13,6 +13,23 @@ After building, run binaries with `ros2 run`.
 
 `colcon-ros-cargo` also aims to support using `cargo` directly as the primary build tool. Just build with `colcon` once, to make sure all non-Cargo dependencies are built and the `.cargo/config.toml` file exists, and then using `cargo` will just work – `cargo build`, `cargo clippy`, `cargo doc`, etc. When the dependency graph changes, rebuild with `colcon`.
 
+### Per-package configuration and committable lock files
+
+By default a single `.cargo/config.toml` is written at the workspace root, with a `[patch]` entry for every Rust package colcon discovers across the installation prefixes and the workspace. Any package that does not depend on a given patch still ends up with an unused `[[patch]]` entry in its `Cargo.lock`. Because the set of discovered packages depends on what is installed in the workspace, these lock files differ from machine to machine, which makes them hard to commit and breaks `cargo build --locked`.
+
+The `--cargo-config-per-package` option instead writes a `.cargo/config.toml` into each package's source directory whose `[patch.crates-io]` table contains only the patches that the package actually resolves (determined via `cargo metadata`). This keeps each `Cargo.lock` free of unused `[[patch]]` entries, so it is deterministic across machines and can be committed. The option implies `--lookup-in-workspace`.
+
+To enable it for every build, add it to a `colcon` `defaults.yaml`:
+
+```yaml
+build:
+  cargo-config-per-package: true
+```
+
+colcon will fully rewrite the `[patch.crates-io]` table of each package's `.cargo/config.toml` on every build. Any other content of an existing `config.toml` is preserved.
+
+The patches contain absolute paths, so a package's `.cargo/config.toml` **cannot be committed**. Add it to `.gitignore` and commit only the `Cargo.lock`. An initial `colcon build` is still needed to generate the config before using `cargo` directly.
+
 
 ## Limitations
 This is by far not a perfect build system.
